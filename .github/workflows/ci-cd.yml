@@ -63,11 +63,23 @@ jobs:
             ./ "$TARGET:urls/"
 
       - name: Build and restart
+        id: build
         run: |
           ssh "$TARGET" 'set -e; cd ~/urls
             docker compose up -d --build --remove-orphans --wait --wait-timeout 120
             docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
             docker image prune -f'
+
+      - name: Diagnose port conflict
+        if: failure() && steps.build.outcome == 'failure'
+        run: |
+          ssh "$TARGET" '
+            echo "--- processes listening on 80/443 ---"
+            sudo -n ss -ltnp | grep -E ":(80|443) " || echo "(none found)"
+            echo "--- containers publishing 80/443 ---"
+            docker ps --format "table {{.Names}}\t{{.Ports}}" | grep -E ":(80|443)->" || echo "(none found)"
+            echo "--- common web services (active = running) ---"
+            for svc in nginx apache2 httpd caddy; do printf "%s: " "$svc"; systemctl is-active "$svc" 2>/dev/null || true; done'
 
       - name: Ensure admin account
         env:
