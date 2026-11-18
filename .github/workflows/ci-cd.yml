@@ -1,0 +1,54 @@
+name: ci-cd
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: ruff check .
+      - run: pytest -q
+      - run: docker build -t urls-app:ci .
+
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, urls-prod]
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Release
+        run: |
+          set -euo pipefail
+          test -f /opt/urls/.env || { echo "Missing /opt/urls/.env"; exit 1; }
+          install -d /opt/urls/app
+          rsync -a --delete --exclude '.git' --exclude '.github' --exclude 'tests' ./ /opt/urls/app/
+          cd /opt/urls/app
+          docker compose up -d --build --remove-orphans --wait --wait-timeout 120
+          docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+
+      - name: Smoke test
+        run: curl -fsS --retry 10 --retry-delay 3 --retry-all-errors https://urls.yashwanthgowdam.in/healthz
+
+      - name: Prune
+        run: docker image prune -f
