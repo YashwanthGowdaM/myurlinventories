@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="head">
+  <div>
+    <h1>Links</h1>
+    <p class="sub">Where things live: dashboards, runbooks, consoles and docs.</p>
+  </div>
+  {% if user %}<a class="btn primary" href="{{ url_for('links.new') }}">Add link</a>{% endif %}
+</div>
+
+<div class="toolbar">
+  <label class="sr" for="filter">Filter links</label>
+  <input id="filter" type="search" placeholder="Filter by label, URL or description. Press / to focus." autocomplete="off">
+  <span id="count" class="count" aria-live="polite" data-total="{{ links|length }}">{{ links|length }} link{{ '' if links|length == 1 else 's' }}</span>
+</div>
+
+{% if links %}
+<div class="panel">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Label</th>
+        <th scope="col">URL</th>
+        <th scope="col">Description</th>
+        {% if user %}<th scope="col" class="act"><span class="sr">Actions</span></th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in links %}
+      <tr data-search="{{ (l.label ~ ' ' ~ l.url ~ ' ' ~ l.description)|lower }}">
+        <td class="label">{{ l.label }}</td>
+        <td class="url"><a href="{{ l.url }}" target="_blank" rel="noopener noreferrer">{{ l.url }}</a></td>
+        <td class="desc">{{ l.description }}</td>
+        {% if user %}
+        <td class="act">
+          <a href="{{ url_for('links.edit', link_id=l.id) }}">Edit</a>
+          <form method="post" action="{{ url_for('links.delete', link_id=l.id) }}" data-confirm="Delete “{{ l.label }}”? This cannot be undone.">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="linkbtn danger" type="submit">Delete</button>
+          </form>
+        </td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p id="no-match" class="empty" hidden>No links match your filter.</p>
+</div>
+{% else %}
+<div class="panel empty">
+  <p>No links yet.{% if user %} Use “Add link” to create the first one.{% else %} Sign in to add the first one.{% endif %}</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Verify · {% endblock %}
+{% block content %}
+<form class="panel form narrow" method="post" action="{{ url_for('auth.verify') }}">
+  <h1>Verification code</h1>
+  <p class="sub">Step 2 of 2. Enter the 6-digit code from your authenticator app.</p>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="field">
+    <label for="code">Code</label>
+    <input id="code" name="code" class="code" inputmode="numeric" autocomplete="one-time-code"
+           pattern="[0-9 ]*" maxlength="7" required autofocus>
+  </div>
+  <div class="actions">
+    <button class="btn primary" type="submit">Sign in</button>
+    <a class="btn" href="{{ url_for('auth.login') }}">Start over</a>
+  </div>
+</form>
+{% endblock %}

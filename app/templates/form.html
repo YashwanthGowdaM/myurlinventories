@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Add link' if mode == 'new' else 'Edit link' }} · {% endblock %}
+{% block content %}
+<div class="head"><h1>{{ 'Add link' if mode == 'new' else 'Edit link' }}</h1></div>
+<form class="panel form" method="post" novalidate
+      action="{{ url_for('links.new') if mode == 'new' else url_for('links.edit', link_id=link_id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <div class="field">
+    <label for="label">Label</label>
+    <input id="label" name="label" value="{{ values.label }}" maxlength="80" required autofocus
+           aria-describedby="h-label" {% if errors.label %}aria-invalid="true"{% endif %}>
+    <p id="h-label" class="hint">What this link is used for, for example “Production Grafana”.</p>
+    {% if errors.label %}<p class="err">{{ errors.label }}</p>{% endif %}
+  </div>
+
+  <div class="field">
+    <label for="url">URL</label>
+    <input id="url" name="url" type="url" inputmode="url" value="{{ values.url }}" maxlength="2048" required
+           placeholder="https://" {% if errors.url %}aria-invalid="true"{% endif %}>
+    {% if errors.url %}<p class="err">{{ errors.url }}</p>{% endif %}
+  </div>
+
+  <div class="field">
+    <label for="description">Short description</label>
+    <textarea id="description" name="description" rows="3" maxlength="240"
+              {% if errors.description %}aria-invalid="true"{% endif %}>{{ values.description }}</textarea>
+    {% if errors.description %}<p class="err">{{ errors.description }}</p>{% endif %}
+  </div>
+
+  <div class="actions">
+    <button class="btn primary" type="submit">{{ 'Add link' if mode == 'new' else 'Save changes' }}</button>
+    <a class="btn" href="{{ url_for('links.index') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

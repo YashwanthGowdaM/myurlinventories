@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Sign in · {% endblock %}
+{% block content %}
+<form class="panel form narrow" method="post" action="{{ url_for('auth.login') }}">
+  <h1>Sign in</h1>
+  <p class="sub">Step 1 of 2. You will be asked for a verification code next.</p>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="field">
+    <label for="username">Username</label>
+    <input id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+  </div>
+  <div class="field">
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+  </div>
+  <div class="actions"><button class="btn primary" type="submit">Continue</button></div>
+</form>
+{% endblock %}
