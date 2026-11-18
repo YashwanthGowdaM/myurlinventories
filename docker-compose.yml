@@ -5,7 +5,7 @@ services:
     build: .
     image: urls-app:latest
     restart: unless-stopped
-    env_file: /opt/urls/.env
+    env_file: .env
     volumes:
       - urls_data:/data
     read_only: true

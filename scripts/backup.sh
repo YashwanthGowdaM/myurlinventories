@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Consistent online backup of the SQLite database. Keeps the last 14 copies.
 set -euo pipefail
-BACKUP_DIR="${BACKUP_DIR:-/var/backups/urls}"
-COMPOSE="docker compose -f /opt/urls/app/docker-compose.yml"
+BACKUP_DIR="${BACKUP_DIR:-$HOME/backups/urls}"
+COMPOSE="docker compose -f $HOME/urls/docker-compose.yml"
 STAMP="$(date +%F_%H%M%S)"
 
 mkdir -p "$BACKUP_DIR"
