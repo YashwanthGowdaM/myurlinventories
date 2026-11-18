@@ -31,6 +31,20 @@ if command -v ufw >/dev/null && $SUDO ufw status | grep -q "Status: active"; the
   for rule in 80/tcp 443/tcp 443/udp; do $SUDO ufw allow "$rule" >/dev/null; done
 fi
 
+# Port 80 may belong to an existing nginx. Leave it alone; just redirect our hostname to https.
+if systemctl is-active --quiet nginx 2>/dev/null; then
+  CONF=/etc/nginx/conf.d/urls-redirect.conf
+  printf '%s\n' 'server {' '    listen 80;' '    listen [::]:80;' \
+    '    server_name urls.yashwanthgowdam.in;' '    return 301 https://$host$request_uri;' '}' \
+    | $SUDO tee "$CONF" >/dev/null
+  if $SUDO nginx -t >/dev/null 2>&1; then
+    $SUDO systemctl reload nginx
+  else
+    $SUDO rm -f "$CONF"
+    echo "WARN: nginx config test failed; redirect not installed (site still works on https)."
+  fi
+fi
+
 # Nightly database backup at 02:15.
 LINE='15 2 * * * bash "$HOME/urls/scripts/backup.sh" >> "$HOME/urls-backup.log" 2>&1'
 ( crontab -l 2>/dev/null | grep -v 'urls/scripts/backup.sh' || true; echo "$LINE" ) | crontab -
