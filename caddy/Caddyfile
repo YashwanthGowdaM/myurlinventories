@@ -1,4 +1,14 @@
+{
+	auto_https disable_redirects
+}
+
 urls.yashwanthgowdam.in {
+	# Certificates are obtained over port 443 only, so port 80 can belong to another web server.
+	tls {
+		issuer acme {
+			disable_http_challenge
+		}
+	}
 	encode zstd gzip
 	header -Server
 	reverse_proxy app:8000
