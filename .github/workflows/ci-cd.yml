@@ -32,23 +32,35 @@ jobs:
   deploy:
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, urls-prod]
-    environment: production
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Release
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VM_KNOWN_HOSTS }}
         run: |
-          set -euo pipefail
-          test -f /opt/urls/.env || { echo "Missing /opt/urls/.env"; exit 1; }
-          install -d /opt/urls/app
-          rsync -a --delete --exclude '.git' --exclude '.github' --exclude 'tests' ./ /opt/urls/app/
-          cd /opt/urls/app
-          docker compose up -d --build --remove-orphans --wait --wait-timeout 120
-          docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Upload code
+        env:
+          TARGET: ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}
+        run: |
+          rsync -az --delete --exclude '.git' --exclude '.github' --exclude 'tests' \
+            ./ "$TARGET:/opt/urls/app/"
+
+      - name: Build and restart
+        env:
+          TARGET: ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}
+        run: |
+          ssh "$TARGET" 'set -e; cd /opt/urls/app
+            docker compose up -d --build --remove-orphans --wait --wait-timeout 120
+            docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+            docker image prune -f'
 
       - name: Smoke test
         run: curl -fsS --retry 10 --retry-delay 3 --retry-all-errors https://urls.yashwanthgowdam.in/healthz
-
-      - name: Prune
-        run: docker image prune -f
