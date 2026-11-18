@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      reset_admin:
+        description: "Reset the admin password and MFA from the ADMIN_PASSWORD secret"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -31,8 +37,10 @@ jobs:
 
   deploy:
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    env:
+      TARGET: ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}
     steps:
       - uses: actions/checkout@v4
 
@@ -46,21 +54,34 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "$HOST" > ~/.ssh/known_hosts
 
+      - name: Prepare VM (Docker, secrets file, firewall, backup cron)
+        run: ssh "$TARGET" 'bash -s' < scripts/bootstrap.sh
+
       - name: Upload code
-        env:
-          TARGET: ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}
         run: |
           rsync -az --delete --exclude '.git' --exclude '.github' --exclude 'tests' --exclude '.env' \
             ./ "$TARGET:urls/"
 
       - name: Build and restart
-        env:
-          TARGET: ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}
         run: |
           ssh "$TARGET" 'set -e; cd ~/urls
             docker compose up -d --build --remove-orphans --wait --wait-timeout 120
             docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
             docker image prune -f'
 
+      - name: Ensure admin account
+        env:
+          ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          RESET_ADMIN: ${{ inputs.reset_admin && '1' || '0' }}
+        run: |
+          printf '%s\n%s\n%s\n' "$ADMIN_USERNAME" "$ADMIN_PASSWORD" "$RESET_ADMIN" | ssh "$TARGET" '
+            set -e
+            read -r ADMIN_USERNAME; read -r ADMIN_PASSWORD; read -r RESET_ADMIN
+            export ADMIN_USERNAME ADMIN_PASSWORD RESET_ADMIN
+            cd ~/urls
+            docker compose exec -T -e ADMIN_USERNAME -e ADMIN_PASSWORD -e RESET_ADMIN app \
+              python -m app.cli ensure-admin'
+
       - name: Smoke test
-        run: curl -fsS --retry 10 --retry-delay 3 --retry-all-errors https://urls.yashwanthgowdam.in/healthz
+        run: curl -fsS --retry 20 --retry-delay 5 --retry-all-errors https://urls.yashwanthgowdam.in/healthz
