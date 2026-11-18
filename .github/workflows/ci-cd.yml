@@ -39,25 +39,25 @@ jobs:
       - name: Configure SSH
         env:
           SSH_KEY: ${{ secrets.VM_SSH_KEY }}
-          KNOWN_HOSTS: ${{ secrets.VM_KNOWN_HOSTS }}
+          HOST: ${{ secrets.VM_HOST }}
         run: |
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh-keyscan -H "$HOST" > ~/.ssh/known_hosts
 
       - name: Upload code
         env:
           TARGET: ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}
         run: |
-          rsync -az --delete --exclude '.git' --exclude '.github' --exclude 'tests' \
-            ./ "$TARGET:/opt/urls/app/"
+          rsync -az --delete --exclude '.git' --exclude '.github' --exclude 'tests' --exclude '.env' \
+            ./ "$TARGET:urls/"
 
       - name: Build and restart
         env:
           TARGET: ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}
         run: |
-          ssh "$TARGET" 'set -e; cd /opt/urls/app
+          ssh "$TARGET" 'set -e; cd ~/urls
             docker compose up -d --build --remove-orphans --wait --wait-timeout 120
             docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
             docker image prune -f'
